@@ -4,7 +4,9 @@ Requires: pip install packet-tracer-pkt-format
 Reads configs/ and web/index.html, so re-run this after changing either.
 """
 import re
+import uuid
 import xml.etree.ElementTree as ET
+from html.parser import HTMLParser
 from pathlib import Path
 
 from make_builder_script import IOS_DEVICES, ios_commands
@@ -53,6 +55,83 @@ POOLS = [
     ("HR", "192.168.20"),
     ("IT", "192.168.30"),
 ]
+
+
+# Canvas area for each row of the index.html table: box corners, then label position.
+LABEL_AREAS = {
+    "Accounts": ((50, 285, 270, 585), (65, 525)),
+    "Human Resources": ((300, 285, 520, 585), (315, 525)),
+    "IT": ((550, 285, 770, 585), (565, 525)),
+    "Shared Server": ((560, 125, 830, 250), (680, 160)),
+}
+TITLE_POSITION = (50, 40)
+
+
+class PageLabels(HTMLParser):
+    """Collects the h1/h3 titles and the table rows from index.html."""
+
+    def __init__(self):
+        super().__init__()
+        self.titles = []
+        self.rows = []
+        self.tag = None
+
+    def handle_starttag(self, tag, attrs):
+        self.tag = tag
+        if tag == "tr":
+            self.rows.append([])
+
+    def handle_endtag(self, tag):
+        self.tag = None
+
+    def handle_data(self, data):
+        if self.tag in ("h1", "h3"):
+            self.titles.append(data.strip())
+        elif self.tag == "td":
+            self.rows[-1].append(data.strip())
+
+
+def add_note(notes, index, position, text):
+    note = ET.SubElement(notes, "NOTE", {"uuid": "{%s}" % uuid.uuid5(uuid.NAMESPACE_DNS, f"oms-note-{index}")})
+    for tag, value in (
+        ("X", position[0]),
+        ("Y", position[1]),
+        ("Z", 40000 + index),
+        ("TEXT", text),
+        ("NOTECLUSTERID", "1-1"),
+        ("MEM_ADDR", 7000000 + index),
+    ):
+        ET.SubElement(note, tag).text = str(value)
+    note.find("TEXT").set("translate", "true")
+
+
+def add_box(rectangles, index, corners):
+    box = ET.SubElement(rectangles, "RECTANGLE", {"uuid": "{%s}" % uuid.uuid5(uuid.NAMESPACE_DNS, f"oms-box-{index}")})
+    for tag, value in zip(("TopLeftX", "TopLeftY", "BottomRightX", "BottomRightY"), corners):
+        ET.SubElement(box, tag).text = str(value)
+    color = ET.SubElement(box, "Color")
+    for channel in ("Red", "Green", "Blue"):
+        ET.SubElement(color, channel).text = "0"
+    ET.SubElement(box, "Filled", {"OUTLINED": "true", "OUTLINECOLOR": "#000000"}).text = "0"
+    ET.SubElement(box, "RECTCLUSTERID").text = "1-1"
+    ET.SubElement(box, "MEM_ADDR").text = str(7100000 + index)
+
+
+def add_page_labels(base, html):
+    """Label the topology with the titles and department table from index.html."""
+    page = PageLabels()
+    page.feed(html)
+    rows = [row for row in page.rows if row]
+    if {row[0] for row in rows} != set(LABEL_AREAS):
+        raise ValueError(f"index.html departments changed: {[row[0] for row in rows]}")
+
+    notes = base.find("PHYSICALWORKSPACE/NOTES")
+    rectangles = base.find("RECTANGLES")
+    add_note(notes, 0, TITLE_POSITION, "\n".join(page.titles))
+    for index, row in enumerate(rows, start=1):
+        corners, position = LABEL_AREAS[row[0]]
+        add_box(rectangles, index, corners)
+        add_note(notes, index, position, "\n".join(row))
 
 
 def set_text(parent, tag, value):
@@ -210,6 +289,8 @@ def main():
             set_pc_dhcp(device)
         elif model == "Server-PT":
             configure_server(device, html)
+
+    add_page_labels(lab.base, html)
 
     lab.save(str(OUTPUT))
     print(f"Wrote {OUTPUT}")
