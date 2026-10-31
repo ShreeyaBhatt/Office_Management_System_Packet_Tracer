@@ -72,6 +72,17 @@ def seed_server_template():
     raise ValueError("seed network has no Server-PT")
 
 
+def make_identity_unique(engine, index):
+    """Templates repeat one base MAC and serial, which gives every switch the same
+    spanning-tree bridge ID and leaves trunks stuck. Each device needs its own."""
+    for port in engine.iter("PORT"):
+        set_text(port, "BIA", port.findtext("MACADDRESS"))
+    for element in engine.iter("BUILD_IN_ADDR"):
+        element.text = "0212.00F0.%04X" % index
+    if engine.find("SERIALNUMBER") is not None:
+        set_text(engine, "SERIALNUMBER", "CAT10106%03d" % index)
+
+
 def add_startup_config(engine):
     """Mirror the running config so the devices keep it across a reload."""
     for old in engine.findall("STARTUPCONFIG"):
@@ -184,9 +195,10 @@ def main():
     with open(ROOT / "web" / "index.html", encoding="utf-8", newline="") as f:
         html = f.read()
 
-    for name, model, _, _ in DEVICES:
+    for index, (name, model, _, _) in enumerate(DEVICES, start=1):
         device = lab._els[ids[name]]
         engine = device.find("ENGINE")
+        make_identity_unique(engine, index)
         if name in IOS_DEVICES:
             add_startup_config(engine)
         if model == "2960-24TT":
