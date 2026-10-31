@@ -1,53 +1,151 @@
-# Office Management System Using Cisco Packet Tracer
+# Small Office Enterprise Network Simulation (GPE)
 
-This is a build-ready base for a Computer Networks group project. It follows the supplied two-page design: Accounts, HR, IT, and Server VLANs; router-on-a-stick routing; central DHCP, DNS, and HTTP; and an ACL that prevents IT from reaching Accounts. The source example in `reference/` is a different topology and is supplied only for comparison.
+A 4-department enterprise network architecture designed and simulated in **Cisco Packet Tracer**. The network implements hierarchical switching, VLAN segmentation, Router-on-a-Stick (802.1Q) inter-VLAN routing, and centralized network infrastructure services (DHCP, DNS, and HTTP).
 
-**Status:** Configuration files and construction instructions are complete. No new `.pkt` file is included, because Cisco Packet Tracer was unavailable in the creation environment. A team member must assemble the topology in Packet Tracer and save it as `Office_Management_System_Base.pkt`. Do not submit `reference/SmallOfficeNetwork_Original.pkt` as the new project.
+---
 
-## Topology and devices
+## Network Architecture Blueprint
 
-Use one 2911 router, four 2960-24TT switches (one core plus three department switches), one Server-PT, and six PC-PT devices. Use Copper Straight-Through cables or Packet Tracer's automatic connection tool. Arrange the router above the core, three department switches below it, two PCs under each department, and the server alongside the core. Name devices exactly as shown below so configuration files match.
+![Network Architecture Diagram](network_diagram.svg)
 
-| Device A / interface | Device B / interface | Purpose |
-| --- | --- | --- |
-| R1-OMS Gi0/0 | SW-CORE Gi0/1 | VLAN trunk |
-| SW-CORE Fa0/1 | SW-ACCOUNTS Fa0/1 | VLAN trunk |
-| SW-CORE Fa0/2 | SW-HR Fa0/1 | VLAN trunk |
-| SW-CORE Fa0/3 | SW-IT Fa0/1 | VLAN trunk |
-| SW-CORE Fa0/4 | SERVER0 Fa0 | Server VLAN 40 |
-| SW-ACCOUNTS Fa0/2, Fa0/3 | ACC-PC1, ACC-PC2 Fa0 | Accounts VLAN 10 |
-| SW-HR Fa0/2, Fa0/3 | HR-PC1, HR-PC2 Fa0 | HR VLAN 20 |
-| SW-IT Fa0/2, Fa0/3 | IT-PC1, IT-PC2 Fa0 | IT VLAN 30 |
+---
 
-## Address plan
+## Cisco Packet Tracer Simulation View
 
-| Role | VLAN | Network | Gateway | DHCP client range |
-| --- | ---: | --- | --- | --- |
-| Accounts | 10 | 192.168.10.0/24 | 192.168.10.1 | 192.168.10.100-149 |
-| HR | 20 | 192.168.20.0/24 | 192.168.20.1 | 192.168.20.100-149 |
-| IT | 30 | 192.168.30.0/24 | 192.168.30.1 | 192.168.30.100-149 |
-| Server | 40 | 192.168.40.0/24 | 192.168.40.1 | Static server: 192.168.40.10 |
+![Small Office Network Topology](Screenshot.png)
 
-All masks are `255.255.255.0`. DNS is `192.168.40.10`. The internal site name is `office.local`.
+---
 
-## Build sequence
+## Logical Wiring & Port Topology
 
-1. Place and name all devices, then cable the exact ports in the topology table. The 2960-24TT has Gigabit ports and FastEthernet ports; use the specified ones.
-2. On each switch, open **CLI**, answer `no` to the initial configuration dialog if shown, press Return, and paste the matching file from `configs/`. Let any initial spanning-tree delay settle. If the CLI rejects `write memory` in your version, use `copy running-config startup-config`.
-3. On the router, open **CLI** and paste `configs/R1-OMS.txt`. If a different router model is used, change *every* `GigabitEthernet0/0` interface name in that file to the router's actual connected port before pasting. The 2911 model is the intended choice.
-4. Configure SERVER0 in **Desktop > IP Configuration**: static IP `192.168.40.10`, mask `255.255.255.0`, gateway `192.168.40.1`, DNS `192.168.40.10`.
-5. Configure SERVER0 services exactly as described in `SERVER_SETUP.md`. Paste `web/index.html` into the HTTP service's `index.html` editor.
-6. On each PC, open **Desktop > IP Configuration > DHCP**. If a PC has an old address, toggle Static then DHCP. Wait for a valid address from its department range.
-7. Run the checks in `TEST_PLAN.md`. Finally save the Packet Tracer file through **File > Save As** using `Office_Management_System_Base.pkt`.
+```mermaid
+flowchart TD
+    classDef router fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px;
+    classDef coreSwitch fill:#e0e7ff,stroke:#4338ca,stroke-width:2px;
+    classDef deptSwitch fill:#ede9fe,stroke:#6d28d9,stroke-width:2px;
+    classDef host fill:#f0fdf4,stroke:#15803d,stroke-width:1.5px;
+    classDef server fill:#fff7ed,stroke:#c2410c,stroke-width:2px;
 
-## How teammates can extend it
+    ROUTER["<b>Main Router</b><br/>Cisco 2911<br/>Router-on-a-Stick (802.1Q)<br/>Gateways: 192.168.x.1"]:::router
+    CORE["<b>Core Switch</b><br/>Cisco 2960-24TT<br/>Trunk Uplinks: VLANs 10, 20, 30, 40"]:::coreSwitch
 
-Reserve switch access ports Fa0/4-Fa0/24 for new endpoints. Additional Accounts PCs should go on SW-ACCOUNTS in VLAN 10, and similarly for HR and IT. The DHCP pools currently have 50 addresses each; increase the maximum if needed. New services can use free static addresses in VLAN 40 outside the DHCP ranges, for example `192.168.40.20`. Document any new ACLs because the current rule intentionally blocks only IT to Accounts.
+    ROUTER ---|"Gig0/0 ═══ Gig0/1<br/>(802.1Q Trunk)"| CORE
 
-## Scope of the base
+    subgraph MGT_BOX ["Management Room (VLAN 10 | 192.168.10.0/24)"]
+        SW_MGT["<b>Management Switch</b><br/>Cisco 2960-24TT"]:::deptSwitch
+        PC_M1["<b>Manager Computer</b><br/>IP: Dynamic (DHCP)<br/>Gateway: 192.168.10.1"]:::host
+        PC_M2["<b>Employee Computer 1</b><br/>IP: Dynamic (DHCP)<br/>Gateway: 192.168.10.1"]:::host
+        SW_MGT ---|"Fa0/2 ── Fa0"| PC_M1
+        SW_MGT ---|"Fa0/3 ── Fa0"| PC_M2
+    end
 
-The web page is a demonstrable intranet landing page. Packet Tracer's built-in HTTP server displays static HTML; it is not an employee database or a production office application. Accounts and HR can communicate with each other and the server. IT can communicate with HR and the server, but cannot communicate with Accounts. The router interfaces remain reachable for troubleshooting.
+    subgraph HR_BOX ["HR Room (VLAN 20 | 192.168.20.0/24)"]
+        SW_HR["<b>HR Switch</b><br/>Cisco 2960-24TT"]:::deptSwitch
+        PC_H1["<b>HR Manager Computer</b><br/>IP: Dynamic (DHCP)<br/>Gateway: 192.168.20.1"]:::host
+        PC_H2["<b>Employee Computer 2</b><br/>IP: Dynamic (DHCP)<br/>Gateway: 192.168.20.1"]:::host
+        SW_HR ---|"Fa0/2 ── Fa0"| PC_H1
+        SW_HR ---|"Fa0/3 ── Fa0"| PC_H2
+    end
 
-## Reference and licensing
+    subgraph IT_BOX ["IT Room (VLAN 30 | 192.168.30.0/24)"]
+        SW_IT["<b>IT Switch</b><br/>Cisco 2960-24TT"]:::deptSwitch
+        PC_I1["<b>IT Admin Computer</b><br/>IP: Dynamic (DHCP)<br/>Gateway: 192.168.30.1"]:::host
+        PC_I2["<b>Employee Computer 3</b><br/>IP: Dynamic (DHCP)<br/>Gateway: 192.168.30.1"]:::host
+        SW_IT ---|"Fa0/2 ── Fa0"| PC_I1
+        SW_IT ---|"Fa0/3 ── Fa0"| PC_I2
+    end
 
-The original `SmallOfficeNetwork_Original.pkt`, image, and MIT license are from the supplied `small-office-network-main` folder. This base's design, configuration files, and documentation are newly written for the supplied office management design.
+    subgraph SRV_BOX ["Server Room (VLAN 40 | 192.168.40.0/24)"]
+        SRV["<b>Main Server</b><br/>Server-PT<br/>IP: 192.168.40.10 /24<br/>Gateway: 192.168.40.1<br/>Services: DHCP + DNS + HTTP<br/>Web: http://office.local"]:::server
+    end
+
+    CORE ---|"Fa0/1 ═══ Fa0/1<br/>(802.1Q Trunk)"| SW_MGT
+    CORE ---|"Fa0/2 ═══ Fa0/1<br/>(802.1Q Trunk)"| SW_HR
+    CORE ---|"Fa0/3 ═══ Fa0/1<br/>(802.1Q Trunk)"| SW_IT
+    CORE ---|"Fa0/4 ─── Fa0<br/>(VLAN 40 Access)"| SRV
+```
+
+---
+
+## Detailed Physical & Logical Port Wiring Table
+
+| Uplink Source Device  | Source Port          | Destination Device      | Destination Port     | Link Mode |     Encapsulation / VLAN      |
+| :-------------------- | :------------------- | :---------------------- | :------------------- | :-------: | :---------------------------: |
+| **Main Router**       | `GigabitEthernet0/0` | **Core Switch**         | `GigabitEthernet0/1` |   Trunk   | 802.1Q (VLANs 10, 20, 30, 40) |
+| **Core Switch**       | `FastEthernet0/1`    | **Management Switch**   | `FastEthernet0/1`    |   Trunk   | 802.1Q (VLANs 10, 20, 30, 40) |
+| **Core Switch**       | `FastEthernet0/2`    | **HR Switch**           | `FastEthernet0/1`    |   Trunk   | 802.1Q (VLANs 10, 20, 30, 40) |
+| **Core Switch**       | `FastEthernet0/3`    | **IT Switch**           | `FastEthernet0/1`    |   Trunk   | 802.1Q (VLANs 10, 20, 30, 40) |
+| **Core Switch**       | `FastEthernet0/4`    | **Main Server**         | `FastEthernet0`      |  Access   |     VLAN 40 (Server Room)     |
+| **Management Switch** | `FastEthernet0/2`    | **Manager Computer**    | `FastEthernet0`      |  Access   |     VLAN 10 (Management)      |
+| **Management Switch** | `FastEthernet0/3`    | **Employee Computer 1** | `FastEthernet0`      |  Access   |     VLAN 10 (Management)      |
+| **HR Switch**         | `FastEthernet0/2`    | **HR Manager Computer** | `FastEthernet0`      |  Access   |         VLAN 20 (HR)          |
+| **HR Switch**         | `FastEthernet0/3`    | **Employee Computer 2** | `FastEthernet0`      |  Access   |         VLAN 20 (HR)          |
+| **IT Switch**         | `FastEthernet0/2`    | **IT Admin Computer**   | `FastEthernet0`      |  Access   |         VLAN 30 (IT)          |
+| **IT Switch**         | `FastEthernet0/3`    | **Employee Computer 3** | `FastEthernet0`      |  Access   |         VLAN 30 (IT)          |
+
+---
+
+## IP Addressing & VLAN Allocation
+
+| Department / Zone   |  VLAN ID  |      Subnet       |   Gateway IP   |   DNS Server    |      IP Assignment       |
+| :------------------ | :-------: | :---------------: | :------------: | :-------------: | :----------------------: |
+| **Management**      | `VLAN 10` | `192.168.10.0/24` | `192.168.10.1` | `192.168.40.10` |      Dynamic (DHCP)      |
+| **Human Resources** | `VLAN 20` | `192.168.20.0/24` | `192.168.20.1` | `192.168.40.10` |      Dynamic (DHCP)      |
+| **IT Department**   | `VLAN 30` | `192.168.30.0/24` | `192.168.30.1` | `192.168.40.10` |      Dynamic (DHCP)      |
+| **Server Room**     | `VLAN 40` | `192.168.40.0/24` | `192.168.40.1` | `192.168.40.10` | Static (`192.168.40.10`) |
+
+---
+
+## Device Role & Naming Directory
+
+| Display Name            | Device Hardware | IOS Hostname        | Department / Zone | Role & Function                                 |
+| :---------------------- | :-------------- | :------------------ | :---------------- | :---------------------------------------------- |
+| **Main Router**         | Cisco 2911      | `Main-Router`       | Central Routing   | 802.1Q Inter-VLAN Gateway & DHCP Relay          |
+| **Core Switch**         | Cisco 2960-24TT | `Core-Switch`       | Core Distribution | 802.1Q Trunk Aggregator for all VLANs           |
+| **Management Switch**   | Cisco 2960-24TT | `Management-Switch` | Management Room   | Access switch for VLAN 10                       |
+| **Manager Computer**    | PC-PT           | —                   | Management Room   | Management department lead workstation          |
+| **Employee Computer 1** | PC-PT           | —                   | Management Room   | Management department staff workstation         |
+| **HR Switch**           | Cisco 2960-24TT | `HR-Switch`         | HR Room           | Access switch for VLAN 20                       |
+| **HR Manager Computer** | PC-PT           | —                   | HR Room           | Human Resources manager workstation             |
+| **Employee Computer 2** | PC-PT           | —                   | HR Room           | Human Resources staff workstation               |
+| **IT Switch**           | Cisco 2960-24TT | `IT-Switch`         | IT Room           | Access switch for VLAN 30                       |
+| **IT Admin Computer**   | PC-PT           | —                   | IT Room           | IT Network & Systems Administrator PC           |
+| **Employee Computer 3** | PC-PT           | —                   | IT Room           | IT Technical Support workstation                |
+| **Main Server**         | Server-PT       | —                   | Server Room       | Hosts DHCP Pools, DNS, and Corporate Web Server |
+
+---
+
+## Core Network Services
+
+### 1. Inter-VLAN Routing (Router-on-a-Stick)
+
+Routing between departmental subnets is performed via subinterfaces on **Main Router** (`GigabitEthernet0/0`):
+
+- `g0/0.10`: Encapsulation `dot1Q 10`, IP `192.168.10.1 255.255.255.0`
+- `g0/0.20`: Encapsulation `dot1Q 20`, IP `192.168.20.1 255.255.255.0`
+- `g0/0.30`: Encapsulation `dot1Q 30`, IP `192.168.30.1 255.255.255.0`
+- `g0/0.40`: Encapsulation `dot1Q 40`, IP `192.168.40.1 255.255.255.0`
+
+### 2. DHCP Relay (`ip helper-address`)
+
+Since the DHCP server resides on VLAN 40 (`192.168.40.10`), each router subinterface is configured with:
+
+```ios
+ip helper-address 192.168.40.10
+```
+
+This forwards client broadcast DHCP Discover packets as unicast packets to the central server.
+
+### 3. DNS & Intranet Web Service
+
+- **DNS Server**: Mapped domain `office.local` $\rightarrow$ `192.168.40.10`.
+- **HTTP Web Server**: Active on port 80 serving the corporate intranet homepage. Any PC can test connectivity by browsing to `http://office.local` or `http://192.168.40.10`.
+
+---
+
+## Workspace Files
+
+- [`network_diagram.svg`](network_diagram.svg) — Vector architecture blueprint with port-level wiring and departmental zoning.
+- [`Small_Office_4_DepartmentSs.pkt`](Small_Office_4_DepartmentSs.pkt) — Active Cisco Packet Tracer project file with simplified names and synchronized IOS configurations.
+- [`Screenshot.png`](Screenshot.png) — Visual snapshot of the network layout and simulation canvas.
+- [`son.png`](son.png) — Visual reference template for simplified device naming and layout.
