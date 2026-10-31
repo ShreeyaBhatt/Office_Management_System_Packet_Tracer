@@ -1,0 +1,48 @@
+enable
+configure terminal
+hostname SW-CORE
+vlan 10
+ name ACCOUNTS
+exit
+vlan 20
+ name HR
+exit
+vlan 30
+ name IT
+exit
+vlan 40
+ name SERVER
+exit
+interface GigabitEthernet0/1
+ description TRUNK_TO_R1-OMS_Gi0/0
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40
+ no shutdown
+exit
+interface FastEthernet0/1
+ description TRUNK_TO_SW-ACCOUNTS_Fa0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40
+ no shutdown
+exit
+interface FastEthernet0/2
+ description TRUNK_TO_SW-HR_Fa0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40
+ no shutdown
+exit
+interface FastEthernet0/3
+ description TRUNK_TO_SW-IT_Fa0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40
+ no shutdown
+exit
+interface FastEthernet0/4
+ description SERVER0_Fa0
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+ no shutdown
+exit
+end
+write memory
